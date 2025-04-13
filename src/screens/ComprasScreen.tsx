@@ -1,31 +1,65 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Alert, Modal, FlatList, Button, ScrollView
 } from 'react-native';
-import FiltroVendas, { FiltrosVendas, Venda } from './FiltroVendas'; // ajuste se necessário
+import FiltroVendas, { FiltrosVendas, Venda } from './FiltroVendas';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/StackNavigator'; // caminho para seu tipo
+import { RootStackParamList } from '../navigation/StackNavigator';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
+import { useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// dentro do seu componente:
 const API_BASE = 'https://60ed-191-7-190-140.ngrok-free.app';
 
 export default function ComprasScreen() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-
+  const route = useRoute();
+  const apenasAssinados = (route.params as { apenasAssinados?: boolean })?.apenasAssinados ?? false;  
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [filtros, setFiltros] = useState<FiltrosVendas>({ qtd: 10 });
+  const [pdvPadrao, setPdvPadrao] = useState<string | undefined>();
+
+  useEffect(() => {
+    const carregarPdv = async () => {
+      const pdv = await AsyncStorage.getItem('pdv');
+      if (pdv) setPdvPadrao(pdv);
+    };
+    carregarPdv();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (vendas.length > 0) {
+        setModalVisible(true);
+      }
+    }, [vendas])
+  );
 
   const buscarVendas = async (filtros: FiltrosVendas) => {
+    setVendas([]);
+    setModalVisible(false);
+  
     try {
       setLoading(true);
+  
+      const filtrosAtualizados = {
+        ...filtros,
+        verifica_promissoria: apenasAssinados ? true : filtros.verifica_promissoria,
+      };
+  
       const response = await axios.get(`${API_BASE}/conrec`, {
-        params: filtros
+        params: filtrosAtualizados,
       });
+  
       setVendas(response.data);
-      setModalVisible(true); // abre o modal após receber os dados
+      setModalVisible(true);
     } catch (error) {
       Alert.alert('Erro', 'Erro ao buscar vendas');
     } finally {
@@ -34,6 +68,7 @@ export default function ComprasScreen() {
   };
 
   const gerarPdf = async (venda: any) => {
+    
     try {
       const payload = {
         valor: venda.VALOR60,
@@ -62,21 +97,44 @@ export default function ComprasScreen() {
     }
   };
 
-  const handleItemPress = (venda: Venda) => {
+  const handleItemPress = async (venda: Venda) => {
     if (venda.NOTAPROMIS) {
-      Alert.alert(
-        'Promissória Assinada',
-        `O cliente ${venda.NOME60} já assinou a promissória para o cupom ${venda.CUPOM60}.`
-      );
+      try {
+        setLoading(true);
+        const nomeArquivo = `${venda.CODCLI60}_${venda.NCAIXA60}_${venda.NUMDOC60}.png`;
+  
+        const res = await axios.get(`${API_BASE}/docs/nota-promissoria/assinada`, {
+          params: { nome_arquivo: nomeArquivo },
+        });
+  
+        const imagemBase64 = res.data.base64;
+        const pdfUrl = `data:image/png;base64,${imagemBase64}`;
+  
+        // Fecha somente o modal ao navegar
+        setModalVisible(false);
+  
+        navigation.navigate('VisualizarAssinado', { pdfUrl, nomeArquivo });
+  
+      } catch (err) {
+        Alert.alert('Erro', 'Erro ao buscar assinatura já feita.');
+      } finally {
+        setLoading(false);
+      }
     } else {
-      gerarPdf(venda); // Gera o PDF e navega para assinatura
+      gerarPdf(venda);
     }
   };
+  
 
   return (
     <View style={styles.container}>
       <ScrollView keyboardShouldPersistTaps="handled">
-        <FiltroVendas onBuscar={buscarVendas} loading={loading} />
+      <FiltroVendas
+        onBuscar={buscarVendas}
+        loading={loading}
+        pdvInicial={pdvPadrao}
+        permitirAlterarPdv={apenasAssinados}
+      />
       </ScrollView>
 
       {/* Modal com resultados da busca */}
@@ -104,8 +162,13 @@ export default function ComprasScreen() {
               <Text style={styles.emptyText}>Nenhuma venda encontrada</Text>
             }
           />
-
-          <Button title="Fechar" onPress={() => setModalVisible(false)} />
+          <Button
+            title="Fechar"
+            onPress={() => {
+              setModalVisible(false);
+              setVendas([]);
+            }}
+          />
         </View>
       </Modal>
     </View>

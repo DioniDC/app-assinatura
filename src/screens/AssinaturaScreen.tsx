@@ -12,6 +12,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/StackNavigator';
 import axios from 'axios';
+import { Image } from 'react-native';
 
 const API_BASE = 'https://60ed-191-7-190-140.ngrok-free.app';
 
@@ -20,7 +21,18 @@ export default function AssinaturaScreen() {
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { pdfUrl, venda, nomeArquivo  } = route.params as any;
+  const isImage = pdfUrl.endsWith('.png') || pdfUrl.startsWith('http');
 
+  if (isImage) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Image
+          source={{ uri: pdfUrl }}
+          style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
+        />
+      </View>
+    );
+  }
   const webViewRef = useRef<WebView>(null);
   const messageHandlerRef = useRef<((data: any) => void) | null>(null);
 

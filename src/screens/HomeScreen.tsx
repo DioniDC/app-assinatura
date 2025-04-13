@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, Alert, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator
+  View,
+  Text,
+  Alert,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,23 +46,22 @@ export default function HomeScreen() {
       if (apiUrl && pdv && filial) {
         buscarUltimaVenda();
       }
-    }, [apiUrl, pdv, filial])
+    }, [apiUrl, pdv, filial]),
   );
 
   const buscarUltimaVenda = async () => {
     try {
       setLoading(true);
       const res = await axios.get(`${apiUrl}/conrec`, {
-        params: {
-          filial,
-          pdv,
-          qtd: 1
-        }
+        params: { filial, pdv, qtd: 1 },
       });
       setUltimaVenda(res.data[0]);
 
       const agora = new Date();
-      const formatada = agora.toLocaleDateString('pt-BR') + ' ' + agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const formatada =
+        agora.toLocaleDateString('pt-BR') +
+        ' ' +
+        agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       setUltimaAtualizacao(formatada);
     } catch (err) {
       Alert.alert('Erro', 'Erro ao buscar última venda');
@@ -85,7 +89,6 @@ export default function HomeScreen() {
       const nomeArquivo = `${venda.CODCLI60}_${venda.NCAIXA60}_${venda.NUMDOC60}.png`;
       navigation.navigate('Assinatura', { pdfUrl, venda, nomeArquivo });
     } catch (err: any) {
-      console.log('Erro ao gerar PDF:', err?.response?.data || err.message);
       Alert.alert('Erro', 'Erro ao gerar PDF');
     }
   };
@@ -104,31 +107,17 @@ export default function HomeScreen() {
       ) : ultimaVenda ? (
         <>
           {ultimaAtualizacao && (
-            <Text style={styles.dataAtualizacao}>
-              Última atualização: {ultimaAtualizacao}
-            </Text>
+            <Text style={styles.dataAtualizacao}>Última atualização: {ultimaAtualizacao}</Text>
           )}
           <View style={styles.noteCard}>
             <Text style={styles.noteTitle}>Cliente: {ultimaVenda.CODCLI60}</Text>
             <Text style={styles.noteTitle}>{ultimaVenda.NOME60}</Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>
-              Valor.....: R$ {ultimaVenda.VALOR60}
-            </Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>
-              Pdv.......: {ultimaVenda.NCAIXA60}
-            </Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>
-              Cupom.....: {ultimaVenda.NUMDOC60}
-            </Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>
-              Data......: {new Date(ultimaVenda.DATEMIS60).toLocaleDateString('pt-BR')}
-            </Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>
-              Vencimento: {new Date(ultimaVenda.DATVENC60).toLocaleDateString('pt-BR')}
-            </Text>
-            {ultimaVenda.NOTAPROMIS && (
-              <Text style={styles.assinadoText}>✅ Esta venda já foi assinada!</Text>
-            )}
+            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Valor.....: R$ {ultimaVenda.VALOR60}</Text>
+            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Pdv.......: {ultimaVenda.NCAIXA60}</Text>
+            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Cupom.....: {ultimaVenda.NUMDOC60}</Text>
+            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Data......: {new Date(ultimaVenda.DATEMIS60).toLocaleDateString('pt-BR')}</Text>
+            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Vencimento: {new Date(ultimaVenda.DATVENC60).toLocaleDateString('pt-BR')}</Text>
+            {ultimaVenda.NOTAPROMIS && <Text style={styles.assinadoText}>✅ Esta venda já foi assinada!</Text>}
           </View>
         </>
       ) : (
@@ -136,30 +125,22 @@ export default function HomeScreen() {
       )}
 
       {!ultimaVenda?.NOTAPROMIS && ultimaVenda && (
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: '#4CAF50' }]}
-          onPress={() => gerarPdf(ultimaVenda)}
-        >
+        <TouchableOpacity style={[styles.button, { backgroundColor: '#4CAF50' }]} onPress={() => gerarPdf(ultimaVenda)}>
           <Text style={styles.buttonText}>Assinar Esta Venda</Text>
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: '#2196F3' }]}
-        onPress={() => navigation.navigate('Compras')}
-      >
+      <TouchableOpacity style={[styles.button, { backgroundColor: '#2196F3' }]} onPress={() => navigation.navigate('Compras', { apenasAssinados: false })}>
         <Text style={styles.buttonText}>🔍 Buscar Outras Vendas</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: '#9C27B0' }]}
-        onPress={() => navigation.navigate('Assinados')}
-      >
+      <TouchableOpacity style={[styles.button, { backgroundColor: '#9C27B0' }]} onPress={() => navigation.navigate('Assinados', { apenasAssinados: true })}>
         <Text style={styles.buttonText}>📄 Consultar Assinados</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   headerRow: {

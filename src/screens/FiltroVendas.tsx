@@ -19,6 +19,8 @@ export interface Venda {
   NOTAPROMIS: boolean;
   NOME60: string;
   CODFIL60: number;
+  NUMDOC60: number;
+  NCAIXA60: number;
 }
 
 export interface FiltrosVendas {
@@ -33,9 +35,16 @@ export interface FiltrosVendas {
 export interface FiltroVendasProps {
   onBuscar?: (filtros: FiltrosVendas) => void;
   loading?: boolean;
+  pdvInicial?: string;
+  permitirAlterarPdv?: boolean;
 }
 
-export default function FiltroVendas({ onBuscar, loading: propLoading = false }: FiltroVendasProps) {
+export default function FiltroVendas({
+  onBuscar,
+  loading: propLoading = false,
+  pdvInicial,
+  permitirAlterarPdv = false
+}: FiltroVendasProps) {
   const [filtros, setFiltros] = useState<FiltrosVendas>({ qtd: 10 });
   const [nomeCliente, setNomeCliente] = useState('');
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -43,20 +52,20 @@ export default function FiltroVendas({ onBuscar, loading: propLoading = false }:
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [internalLoading, setInternalLoading] = useState(false);
   const loading = propLoading || internalLoading;
+
   const [apiUrl, setApiUrl] = useState('');
 
   useEffect(() => {
     const carregarConfiguracoes = async () => {
       try {
         const url = await AsyncStorage.getItem('apiUrl');
-        const pdv = await AsyncStorage.getItem('pdv');
         const filial = await AsyncStorage.getItem('filial');
 
         if (url) setApiUrl(url);
         setFiltros(prev => ({
           ...prev,
-          pdv: pdv || '',
-          filial: filial || '',
+          pdv: pdvInicial ?? prev.pdv ?? '',
+          filial: filial || ''
         }));
       } catch (error) {
         console.error('Erro ao carregar configurações:', error);
@@ -64,14 +73,16 @@ export default function FiltroVendas({ onBuscar, loading: propLoading = false }:
     };
 
     carregarConfiguracoes();
-  }, []);
+  }, [pdvInicial]);
 
   const handleBuscarVendas = async () => {
     try {
       const filtrosParaEnviar: FiltrosVendas = {
-        ...filtros,
-        qtd: filtros.qtd || 10,
-        verifica_promissoria: filtros.verifica_promissoria ?? false
+        filial: filtros.filial,
+        pdv: filtros.pdv,
+        codigocliente: filtros.codigocliente,
+        documento: filtros.documento,
+        qtd: filtros.qtd || 5
       };
 
       if (onBuscar) {
@@ -125,11 +136,7 @@ export default function FiltroVendas({ onBuscar, loading: propLoading = false }:
       </View>
 
       <Text style={styles.label}>PDV:</Text>
-      {filtros.pdv ? (
-        <View style={styles.fixoCurto}>
-          <Text style={styles.fixoText}>{filtros.pdv}</Text>
-        </View>
-      ) : (
+      {permitirAlterarPdv ? (
         <TextInput
           style={styles.inputCurto}
           value={filtros.pdv}
@@ -138,6 +145,13 @@ export default function FiltroVendas({ onBuscar, loading: propLoading = false }:
           placeholder="PDV"
           maxLength={3}
         />
+      ) : (
+        <TouchableOpacity
+          style={styles.fixoCurto}
+          onPress={() => alert('Opcao apenas para PDV configurado!')}
+        >
+          <Text style={styles.fixoText}>{filtros.pdv || '—'}</Text>
+        </TouchableOpacity>
       )}
 
       <Text style={styles.label}>Documento:</Text>
@@ -162,10 +176,12 @@ export default function FiltroVendas({ onBuscar, loading: propLoading = false }:
 
       {loadingClientes && <ActivityIndicator style={styles.loading} />}
       {filtros.codigocliente && (
-        <Text style={styles.clienteSelecionado}>Cliente selecionado: {filtros.codigocliente}</Text>
+        <Text style={styles.clienteSelecionado}>
+          Cliente selecionado: {filtros.codigocliente}
+        </Text>
       )}
 
-      <Button title="Buscar Vendas " onPress={handleBuscarVendas} disabled={loading} />
+      <Button title="Buscar Vendas" onPress={handleBuscarVendas} disabled={loading} />
       {loading && <ActivityIndicator style={styles.loading} />}
 
       <Modal visible={modalVisible} animationType="slide">
@@ -194,16 +210,13 @@ export default function FiltroVendas({ onBuscar, loading: propLoading = false }:
 const styles = StyleSheet.create({
   container: { padding: 10, backgroundColor: '#f5f5f5' },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 10,
-    backgroundColor: '#fff'
+    borderWidth: 1, borderColor: '#ccc', padding: 10,
+    borderRadius: 6, marginBottom: 10, backgroundColor: '#fff'
   },
   label: { fontWeight: 'bold', marginTop: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   flex1: { flex: 1 },
+  checkboxContainer: { flexDirection: 'row', justifyContent: 'space-between', marginVertical: 15 },
   clienteSelecionado: { fontStyle: 'italic', color: '#2c3e50' },
   modalContainer: { flex: 1, padding: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
@@ -212,27 +225,14 @@ const styles = StyleSheet.create({
   clienteNome: { color: '#555' },
   loading: { marginVertical: 10 },
   emptyText: { textAlign: 'center', marginTop: 20, color: '#777' },
-  fixoCurto: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: '#eee',
-    width: 80,
-    alignItems: 'center',
-  },
   inputCurto: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 10,
-    backgroundColor: '#fff',
-    width: 80,
+    borderWidth: 1, borderColor: '#ccc', padding: 10,
+    borderRadius: 6, marginBottom: 10, backgroundColor: '#fff', width: 80
   },
-  fixoText: {
-    color: '#333',
-    fontWeight: 'bold',
-  }
+  fixoCurto: {
+    borderWidth: 1, borderColor: '#ccc', borderRadius: 6,
+    padding: 10, marginBottom: 10, backgroundColor: '#eee',
+    width: 80, alignItems: 'center'
+  },
+  fixoText: { color: '#333', fontWeight: 'bold' }
 });
