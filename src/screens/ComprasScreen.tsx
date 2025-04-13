@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Alert, Modal, FlatList, Button, ScrollView
@@ -13,9 +13,6 @@ import { useCallback } from 'react';
 import { useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// dentro do seu componente:
-const API_BASE = 'https://60ed-191-7-190-140.ngrok-free.app';
-
 export default function ComprasScreen() {
   const [vendas, setVendas] = useState<Venda[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,10 +22,14 @@ export default function ComprasScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [filtros, setFiltros] = useState<FiltrosVendas>({ qtd: 10 });
   const [pdvPadrao, setPdvPadrao] = useState<string | undefined>();
+  const ultimaVendaAssinadaRef = useRef<Venda | null>(null);
+  const [apiUrl, setApiUrl] = useState<string>('');
 
   useEffect(() => {
     const carregarPdv = async () => {
       const pdv = await AsyncStorage.getItem('pdv');
+      const urlSalva = await AsyncStorage.getItem('apiUrl');
+      if (urlSalva) setApiUrl(urlSalva);
       if (pdv) setPdvPadrao(pdv);
     };
     carregarPdv();
@@ -38,6 +39,7 @@ export default function ComprasScreen() {
     useCallback(() => {
       if (vendas.length > 0) {
         setModalVisible(true);
+        ultimaVendaAssinadaRef.current = null;
       }
     }, [vendas])
   );
@@ -54,14 +56,18 @@ export default function ComprasScreen() {
         verifica_promissoria: apenasAssinados ? true : filtros.verifica_promissoria,
       };
   
-      const response = await axios.get(`${API_BASE}/conrec`, {
+      const response = await axios.get(`${apiUrl}/conrec`, {
         params: filtrosAtualizados,
       });
   
       setVendas(response.data);
       setModalVisible(true);
-    } catch (error) {
-      Alert.alert('Erro', 'Erro ao buscar vendas');
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        Alert.alert('', 'Nenhum venda encontrada');
+      } else {
+        Alert.alert('Erro', 'Erro ao buscar vendas');
+      }
     } finally {
       setLoading(false);
     }
@@ -82,15 +88,20 @@ export default function ComprasScreen() {
       };
 
       const res = await axios.post(
-        `${API_BASE}/docs/nota-promissoria?base64_output=true`,
+        `${apiUrl}/docs/nota-promissoria?base64_output=true`,
         payload
       );
 
       const base64 = res.data.base64;
       const pdfUrl = `data:application/pdf;base64,${base64}`;
       const nomeArquivo = `${venda.CODCLI60}_${venda.NCAIXA60}_${venda.NUMDOC60}.png`;
+      ultimaVendaAssinadaRef.current = venda;
 
-      navigation.navigate('Assinatura', { pdfUrl, venda, nomeArquivo });
+      navigation.navigate('Assinatura', {
+        pdfUrl,
+        venda,
+        nomeArquivo
+      });
     } catch (err: any) {
       console.log('Erro ao gerar PDF:', err?.response?.data || err.message);
       Alert.alert('Erro', 'Erro ao gerar PDF');
@@ -103,7 +114,7 @@ export default function ComprasScreen() {
         setLoading(true);
         const nomeArquivo = `${venda.CODCLI60}_${venda.NCAIXA60}_${venda.NUMDOC60}.png`;
   
-        const res = await axios.get(`${API_BASE}/docs/nota-promissoria/assinada`, {
+        const res = await axios.get(`${apiUrl}/docs/nota-promissoria/assinada`, {
           params: { nome_arquivo: nomeArquivo },
         });
   

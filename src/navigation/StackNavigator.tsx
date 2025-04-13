@@ -10,7 +10,7 @@ import VisualizarAssinadoScreen from '../screens/VisualizarAssinadoScreen';
 export type RootStackParamList = {
   Start: undefined;
   Home: undefined;
-  Assinatura: { pdfUrl: string; venda: any; nomeArquivo: string };
+  Assinatura: { pdfUrl: string; venda: any; nomeArquivo: string, onVoltar?: () => void; };
   Compras: { apenasAssinados?: boolean };
   Assinados: { apenasAssinados?: boolean };
   VisualizarAssinado: { pdfUrl: string; nomeArquivo: string };

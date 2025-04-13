@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, Button, StyleSheet, Modal,
-  FlatList, TouchableOpacity, ActivityIndicator
+  FlatList, TouchableOpacity, ActivityIndicator,
+  Alert
 } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Keyboard } from 'react-native';
 
 export interface Cliente {
   CODCLI10: string;
@@ -52,7 +54,10 @@ export default function FiltroVendas({
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [internalLoading, setInternalLoading] = useState(false);
   const loading = propLoading || internalLoading;
-
+  const limparCliente = () => {
+    setFiltros({ ...filtros, codigocliente: undefined });
+    setNomeCliente('');
+  };
   const [apiUrl, setApiUrl] = useState('');
 
   useEffect(() => {
@@ -94,20 +99,24 @@ export default function FiltroVendas({
         });
         console.log('Resultados da busca:', res.data);
       }
-    } catch (error) {
-      console.error('Erro na busca:', error);
-      alert('Erro ao buscar vendas');
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        Alert.alert('', 'Nenhum venda encontrada');
+      } else {
+        Alert.alert('Erro', 'Erro ao buscar vendas');
+      }
     } finally {
       setInternalLoading(false);
     }
   };
 
   const buscarClientes = async () => {
+    Keyboard.dismiss();
     if (!nomeCliente.trim()) {
       alert('Digite um nome para buscar');
       return;
     }
-
+  
     try {
       setLoadingClientes(true);
       const res = await axios.get(`${apiUrl}/cadcli/`, {
@@ -115,16 +124,20 @@ export default function FiltroVendas({
       });
       setClientes(res.data);
       setModalVisible(true);
-    } catch (err) {
-      alert('Erro ao buscar clientes');
-      console.error(err);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        Alert.alert('', 'Nenhum cliente encontrado');
+      } else {
+        Alert.alert('Erro', 'Erro ao buscar clientes');
+      }
     } finally {
       setLoadingClientes(false);
     }
   };
-
+  
   const selecionarCliente = (cliente: Cliente) => {
     setFiltros({ ...filtros, codigocliente: cliente.CODCLI10 });
+    setNomeCliente(cliente.RAZSOC10);
     setModalVisible(false);
   };
 
@@ -163,23 +176,35 @@ export default function FiltroVendas({
         placeholder="Ex: 53999"
       />
 
-      <Text style={styles.label}>Cliente:</Text>
-      <View style={styles.row}>
-        <TextInput
-          style={[styles.input, styles.flex1]}
-          placeholder="Digite o nome do cliente (Ex: JOAO)"
-          value={nomeCliente}
-          onChangeText={setNomeCliente}
-        />
-        <Button title="Buscar" onPress={buscarClientes} disabled={loadingClientes} />
+<Text style={styles.label}>Cliente:</Text>
+{!filtros.codigocliente ? (
+  <View style={styles.row}>
+    <TextInput
+      style={[styles.input, styles.flex1]}
+      placeholder="Digite o nome do cliente (Ex: JOAO)"
+      value={nomeCliente}
+      onChangeText={setNomeCliente}
+    />
+    <Button title="Buscar" onPress={buscarClientes} disabled={loadingClientes} />
+  </View>
+) : (
+  <>
+    <View style={styles.selecionadoBox}>
+      <View style={styles.selecionadoHeader}>
+        <Text style={styles.selecionadoLabel}>Cliente selecionado:</Text>
+        <TouchableOpacity onPress={limparCliente}>
+          <Text style={styles.limparTexto}>❌</Text>
+        </TouchableOpacity>
       </View>
+      <Text style={styles.selecionadoValor}>
+        {filtros.codigocliente} - {nomeCliente}
+      </Text>
+    </View>
+    <View style={{ height: 20 }} />
+  </>
+)}
 
       {loadingClientes && <ActivityIndicator style={styles.loading} />}
-      {filtros.codigocliente && (
-        <Text style={styles.clienteSelecionado}>
-          Cliente selecionado: {filtros.codigocliente}
-        </Text>
-      )}
 
       <Button title="Buscar Vendas" onPress={handleBuscarVendas} disabled={loading} />
       {loading && <ActivityIndicator style={styles.loading} />}
@@ -234,5 +259,31 @@ const styles = StyleSheet.create({
     padding: 10, marginBottom: 10, backgroundColor: '#eee',
     width: 80, alignItems: 'center'
   },
-  fixoText: { color: '#333', fontWeight: 'bold' }
+  fixoText: { color: '#333', fontWeight: 'bold' },
+  selecionadoBox: {
+    backgroundColor: '#d0f0ff',
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 10,
+  },
+  selecionadoLabel: {
+    fontWeight: 'bold',
+    color: '#0077aa',
+  },
+  selecionadoValor: {
+    fontStyle: 'italic',
+    color: '#003344',
+  },
+  selecionadoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  limparTexto: {
+    color: '#c00',
+    fontSize: 18,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+  },
+  
 });

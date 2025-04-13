@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,16 +13,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/StackNavigator';
 import axios from 'axios';
 import { Image } from 'react-native';
-
-const API_BASE = 'https://60ed-191-7-190-140.ngrok-free.app';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AssinaturaScreen() {
   const route = useRoute();
-  const navigation =
-    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { pdfUrl, venda, nomeArquivo  } = route.params as any;
+  const [apiUrl, setApiUrl] = useState<string>('');
   const isImage = pdfUrl.endsWith('.png') || pdfUrl.startsWith('http');
-
   if (isImage) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -33,9 +31,16 @@ export default function AssinaturaScreen() {
       </View>
     );
   }
+  useEffect(() => {
+    const carregarApiUrl = async () => {
+      const urlSalva = await AsyncStorage.getItem('apiUrl');
+      if (urlSalva) setApiUrl(urlSalva);
+    };
+  
+    carregarApiUrl();
+  }, []);
   const webViewRef = useRef<WebView>(null);
   const messageHandlerRef = useRef<((data: any) => void) | null>(null);
-
   const [isSigning, setIsSigning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -113,7 +118,7 @@ export default function AssinaturaScreen() {
 
       formData.append('vendaId', venda.id);
 
-      await axios.post(`${API_BASE}/docs/nota-promissoria/salvar-png`, formData, {
+      await axios.post(`${apiUrl}/docs/nota-promissoria/salvar-png`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -311,22 +316,21 @@ export default function AssinaturaScreen() {
         </TouchableOpacity>
       ) : (
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
-            onPress={toggleSigning}
-            disabled={isSaving}
-          >
-            <Text style={styles.buttonText}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.button, styles.saveButton]}
-            onPress={handleSaveSignature}
-            disabled={isSaving}
-          >
-            <Text style={styles.buttonText}>
-              {isSaving ? 'Salvando...' : 'Salvar'}
-            </Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.cancelButton]}
+          disabled={isSaving}
+        >
+          <Text style={styles.buttonText}>Cancelar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.saveButton]}
+          onPress={handleSaveSignature}
+          disabled={isSaving}
+        >
+          <Text style={styles.buttonText}>
+            {isSaving ? 'Salvando...' : 'Salvar'}
+          </Text>
+        </TouchableOpacity>
         </View>
       )}
     </View>
