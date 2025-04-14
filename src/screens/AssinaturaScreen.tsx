@@ -6,21 +6,35 @@ import {
   TouchableOpacity,
   Text,
   Alert,
+  Image,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/StackNavigator';
 import axios from 'axios';
-import { Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AssinaturaScreen() {
   const route = useRoute();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { pdfUrl, venda, nomeArquivo  } = route.params as any;
+  const { pdfUrl, venda, nomeArquivo } = route.params as any;
+
   const [apiUrl, setApiUrl] = useState<string>('');
   const isImage = pdfUrl.endsWith('.png') || pdfUrl.startsWith('http');
+  const webViewRef = useRef<WebView>(null);
+  const messageHandlerRef = useRef<((data: any) => void) | null>(null);
+  const [isSigning, setIsSigning] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const carregarApiUrl = async () => {
+      const urlSalva = await AsyncStorage.getItem('apiUrl');
+      if (urlSalva) setApiUrl(urlSalva);
+    };
+    carregarApiUrl();
+  }, []);
+
   if (isImage) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -31,91 +45,66 @@ export default function AssinaturaScreen() {
       </View>
     );
   }
-  useEffect(() => {
-    const carregarApiUrl = async () => {
-      const urlSalva = await AsyncStorage.getItem('apiUrl');
-      if (urlSalva) setApiUrl(urlSalva);
-    };
-  
-    carregarApiUrl();
-  }, []);
-  const webViewRef = useRef<WebView>(null);
-  const messageHandlerRef = useRef<((data: any) => void) | null>(null);
-  const [isSigning, setIsSigning] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+
+  const getSignature = (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      messageHandlerRef.current = (data) => {
+        if (data.type === 'error') {
+          reject(new Error(data.message));
+          messageHandlerRef.current = null;
+          return;
+        }
+
+        if (data.type === 'signature') {
+          resolve(data.data);
+          messageHandlerRef.current = null;
+        }
+      };
+
+      webViewRef.current?.injectJavaScript(`
+        (function() {
+          const canvas = document.getElementById('drawingCanvas');
+          const ctx = canvas.getContext('2d');
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          let isEmpty = true;
+
+          for (let i = 0; i < imageData.data.length; i += 4) {
+            if (imageData.data[i + 3] !== 0) {
+              isEmpty = false;
+              break;
+            }
+          }
+
+          if (isEmpty) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'error',
+              message: 'Assinatura não detectada. Por favor, assine antes de salvar.'
+            }));
+            return;
+          }
+
+          const dataUrl = canvas.toDataURL('image/png');
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'signature',
+            data: dataUrl
+          }));
+        })();
+      `);
+    });
+  };
 
   const handleSaveSignature = async () => {
     try {
       setIsSaving(true);
 
-      const signatureDataUrl = await new Promise<string>((resolve) => {
-        messageHandlerRef.current = (data) => {
-          if (data.type === 'signature') {
-            resolve(data.data);
-            messageHandlerRef.current = null;
-          }
-        };
-
-        webViewRef.current?.injectJavaScript(`
-          (function() {
-            const canvas = document.getElementById('drawingCanvas');
-            const dataUrl = canvas.toDataURL('image/png');
-            window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'signature',
-              data: dataUrl
-            }));
-          })();
-        `);
-      });
-
-      if (!signatureDataUrl) {
-        throw new Error('Não foi possível capturar a assinatura');
-      }
-
-      const signedPdfDataUrl = await new Promise<string>((resolve) => {
-        messageHandlerRef.current = (data) => {
-          if (data.type === 'combinedPdf') {
-            resolve(data.data);
-            messageHandlerRef.current = null;
-          }
-        };
-
-        webViewRef.current?.injectJavaScript(`
-          (function() {
-            setTimeout(() => {
-              const pdfCanvas = document.getElementById('pdfCanvas');
-              const signatureCanvas = document.getElementById('drawingCanvas');
-              
-              const combinedCanvas = document.createElement('canvas');
-              combinedCanvas.width = pdfCanvas.width;
-              combinedCanvas.height = pdfCanvas.height;
-
-              const ctx = combinedCanvas.getContext('2d');
-              ctx.drawImage(pdfCanvas, 0, 0, pdfCanvas.width, pdfCanvas.height);
-              ctx.drawImage(signatureCanvas, 0, 0, signatureCanvas.width, signatureCanvas.height);
-
-              const dataUrl = combinedCanvas.toDataURL('image/png');
-
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'combinedPdf',
-                data: dataUrl
-              }));
-            }, 500);
-          })();
-        `);
-      });
-
-      if (!signedPdfDataUrl) {
-        throw new Error('Não foi possível combinar PDF e assinatura');
-      }
+      const signatureDataUrl = await getSignature();
 
       const formData = new FormData();
       formData.append('arquivo', {
-        uri: signedPdfDataUrl,
+        uri: signatureDataUrl,
         name: nomeArquivo,
         type: 'image/png',
       } as any);
-
       formData.append('vendaId', venda.id);
 
       await axios.post(`${apiUrl}/docs/nota-promissoria/salvar-png`, formData, {
@@ -127,8 +116,7 @@ export default function AssinaturaScreen() {
       Alert.alert('Sucesso', 'Documento assinado salvo com sucesso!');
       navigation.navigate('Home');
     } catch (err: any) {
-      Alert.alert('Erro', 'Erro ao salvar documento assinado: ' + (err.message || 'Erro desconhecido'));
-      console.error('Erro detalhado:', err.response?.data || err.message);
+      Alert.alert('Erro', err.message || 'Erro desconhecido');
     } finally {
       setIsSaving(false);
     }
@@ -151,18 +139,8 @@ export default function AssinaturaScreen() {
       <head>
         <meta charset="UTF-8">
         <style>
-          body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-          }
-          #pdfContainer {
-            position: relative;
-            width: 100%;
-            height: 100%;
-          }
+          body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+          #pdfContainer { position: relative; width: 100%; height: 100%; }
           #pdfCanvas, #drawingCanvas {
             position: absolute;
             top: 0;
@@ -170,14 +148,8 @@ export default function AssinaturaScreen() {
             width: 100%;
             height: 100%;
           }
-          #pdfCanvas {
-            z-index: 1;
-          }
-          #drawingCanvas {
-            z-index: 2;
-            pointer-events: none;
-            background-color: transparent;
-          }
+          #pdfCanvas { z-index: 1; }
+          #drawingCanvas { z-index: 2; pointer-events: none; background-color: transparent; }
         </style>
       </head>
       <body>
@@ -316,21 +288,20 @@ export default function AssinaturaScreen() {
         </TouchableOpacity>
       ) : (
         <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
-          disabled={isSaving}
-        >
-          <Text style={styles.buttonText}>Cancelar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.saveButton]}
-          onPress={handleSaveSignature}
-          disabled={isSaving}
-        >
-          <Text style={styles.buttonText}>
-            {isSaving ? 'Salvando...' : 'Salvar'}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.cancelButton]}
+            onPress={toggleSigning}
+            disabled={isSaving}
+          >
+            <Text style={styles.buttonText}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.saveButton]}
+            onPress={handleSaveSignature}
+            disabled={isSaving}
+          >
+            <Text style={styles.buttonText}>{isSaving ? 'Salvando...' : 'Salvar'}</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
