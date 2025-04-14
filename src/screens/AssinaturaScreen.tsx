@@ -96,27 +96,63 @@ export default function AssinaturaScreen() {
   const handleSaveSignature = async () => {
     try {
       setIsSaving(true);
-
+  
+      // Primeiro, obtemos a assinatura
       const signatureDataUrl = await getSignature();
-
+  
+      // Agora obtemos o PDF com a assinatura combinada
+      const combinedPdfDataUrl = await new Promise<string>((resolve, reject) => {
+        webViewRef.current?.injectJavaScript(`
+          (function() {
+            const pdfCanvas = document.getElementById('pdfCanvas');
+            const drawingCanvas = document.getElementById('drawingCanvas');
+            const combinedCanvas = document.createElement('canvas');
+            combinedCanvas.width = pdfCanvas.width;
+            combinedCanvas.height = pdfCanvas.height;
+            const ctx = combinedCanvas.getContext('2d');
+            
+            // Desenha o PDF primeiro
+            ctx.drawImage(pdfCanvas, 0, 0);
+            // Depois desenha a assinatura por cima
+            ctx.drawImage(drawingCanvas, 0, 0);
+            
+            const dataUrl = combinedCanvas.toDataURL('image/png');
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'combined',
+              data: dataUrl
+            }));
+          })();
+        `);
+  
+        messageHandlerRef.current = (data) => {
+          if (data.type === 'combined') {
+            resolve(data.data);
+            messageHandlerRef.current = null;
+          } else if (data.type === 'error') {
+            reject(new Error(data.message));
+            messageHandlerRef.current = null;
+          }
+        };
+      });
+  
       const formData = new FormData();
       formData.append('arquivo', {
-        uri: signatureDataUrl,
+        uri: combinedPdfDataUrl,
         name: nomeArquivo,
         type: 'image/png',
       } as any);
       formData.append('vendaId', venda.id);
-
+  
       await axios.post(`${apiUrl}/docs/nota-promissoria/salvar-png`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-
+  
       Alert.alert('Sucesso', 'Documento assinado salvo com sucesso!');
       navigation.navigate('Home');
     } catch (err: any) {
-      Alert.alert('Erro', err.message || 'Erro desconhecido');
+      Alert.alert('Erro', err.message || 'Erro ao salvar o documento assinado');
     } finally {
       setIsSaving(false);
     }
