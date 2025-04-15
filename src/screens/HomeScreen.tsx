@@ -110,24 +110,48 @@ export default function HomeScreen() {
             <Text style={styles.dataAtualizacao}>Última atualização: {ultimaAtualizacao}</Text>
           )}
           <View style={styles.noteCard}>
-            <Text style={styles.noteTitle}>Cliente: {ultimaVenda.CODCLI60}</Text>
-            <Text style={styles.noteTitle}>{ultimaVenda.NOME60}</Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Valor.....: R$ {ultimaVenda.VALOR60}</Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Pdv.......: {ultimaVenda.NCAIXA60}</Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Cupom.....: {ultimaVenda.NUMDOC60}</Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Data......: {new Date(ultimaVenda.DATEMIS60).toLocaleDateString('pt-BR')}</Text>
-            <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Vencimento: {new Date(ultimaVenda.DATVENC60).toLocaleDateString('pt-BR')}</Text>
-            {ultimaVenda.NOTAPROMIS && <Text style={styles.assinadoText}>✅ Esta venda já foi assinada!</Text>}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={async () => {
+                try {
+                  if (ultimaVenda.NOTAPROMIS) {
+                    setLoading(true);
+                    const nomeArquivo = `${ultimaVenda.CODCLI60}_${ultimaVenda.NCAIXA60}_${ultimaVenda.NUMDOC60}.png`;
+                  
+                    const res = await axios.get(`${apiUrl}/docs/nota-promissoria/assinada`, {
+                      params: { nome_arquivo: nomeArquivo },
+                    });
+                  
+                    const imagemBase64 = res.data.base64;
+                    const pdfUrl = `data:image/png;base64,${imagemBase64}`;
+                  
+                    navigation.navigate('VisualizarAssinado', { pdfUrl, nomeArquivo });
+                  } else {
+                    gerarPdf(ultimaVenda);
+                  }
+                } catch (err) {
+                  Alert.alert('Erro', 'Erro ao carregar assinatura.');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
+              <Text style={styles.noteTitle}>Cliente: {ultimaVenda.CODCLI60}</Text>
+              <Text style={styles.noteTitle}>{ultimaVenda.NOME60}</Text>
+              <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Valor.....: R$ {ultimaVenda.VALOR60}</Text>
+              <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Pdv.......: {ultimaVenda.NCAIXA60}</Text>
+              <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Cupom.....: {ultimaVenda.NUMDOC60}</Text>
+              <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Data......: {new Date(ultimaVenda.DATEMIS60).toLocaleDateString('pt-BR')}</Text>
+              <Text style={[styles.noteDetail, { fontFamily: 'monospace' }]}>Vencimento: {new Date(ultimaVenda.DATVENC60).toLocaleDateString('pt-BR')}</Text>
+            
+              <Text style={ultimaVenda.NOTAPROMIS ? styles.assinadoText : styles.cliqueAssinarText}>
+                {ultimaVenda.NOTAPROMIS ? '✅ Esta venda já foi assinada!' : '🖋️ Clique para assinar esta venda'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </>
       ) : (
         <Text>Nenhuma venda encontrada.</Text>
-      )}
-
-      {!ultimaVenda?.NOTAPROMIS && ultimaVenda && (
-        <TouchableOpacity style={[styles.button, { backgroundColor: '#4CAF50' }]} onPress={() => gerarPdf(ultimaVenda)}>
-          <Text style={styles.buttonText}>Assinar Esta Venda</Text>
-        </TouchableOpacity>
       )}
 
       <TouchableOpacity style={[styles.button, { backgroundColor: '#2196F3' }]} onPress={() => navigation.navigate('Compras', { apenasAssinados: false })}>
@@ -214,5 +238,12 @@ const styles = StyleSheet.create({
     color: '#666',
     alignSelf: 'flex-end',
     marginBottom: 10,
+  },
+  cliqueAssinarText: {
+    marginTop: 10,
+    fontWeight: 'bold',
+    color: '#0077cc',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });

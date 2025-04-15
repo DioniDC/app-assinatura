@@ -150,7 +150,7 @@ export default function AssinaturaScreen() {
       });
   
       Alert.alert('Sucesso', 'Documento assinado salvo com sucesso!');
-      navigation.navigate('Home');
+      navigation.replace('Home');
     } catch (err: any) {
       Alert.alert('Erro', err.message || 'Erro ao salvar o documento assinado');
     } finally {
