@@ -94,7 +94,7 @@ export default function ComprasScreen() {
 
       const base64 = res.data.base64;
       const pdfUrl = `data:application/pdf;base64,${base64}`;
-      const nomeArquivo = `${venda.CODCLI60}_${venda.NCAIXA60}_${venda.NUMDOC60}.png`;
+      const nomeArquivo = `${venda.CODFIL60}_${venda.CODCLI60}_${venda.NCAIXA60}_${venda.NUMDOC60}.png`;
       ultimaVendaAssinadaRef.current = venda;
 
       navigation.navigate('Assinatura', {
@@ -112,7 +112,7 @@ export default function ComprasScreen() {
     if (venda.NOTAPROMIS) {
       try {
         setLoading(true);
-        const nomeArquivo = `${venda.CODCLI60}_${venda.NCAIXA60}_${venda.NUMDOC60}.png`;
+        const nomeArquivo = `${venda.CODFIL60}_${venda.CODCLI60}_${venda.NCAIXA60}_${venda.NUMDOC60}.png`;
   
         const res = await axios.get(`${apiUrl}/docs/nota-promissoria/assinada`, {
           params: { nome_arquivo: nomeArquivo },
@@ -120,8 +120,7 @@ export default function ComprasScreen() {
   
         const imagemBase64 = res.data.base64;
         const pdfUrl = `data:image/png;base64,${imagemBase64}`;
-  
-        // Fecha somente o modal ao navegar
+
         setModalVisible(false);
   
         navigation.navigate('VisualizarAssinado', { pdfUrl, nomeArquivo });
@@ -162,7 +161,8 @@ export default function ComprasScreen() {
                 style={[styles.item, item.NOTAPROMIS && styles.assinado]}
               >
                 <Text style={styles.bold}>Cupom: {item.CUPOM60}</Text>
-                <Text>Filail: {item.CODFIL60}</Text>
+                <Text>Filial: {item.CODFIL60}</Text>
+                <Text>Pdv: {item.NCAIXA60}</Text>
                 <Text>Valor: R$ {item.VALOR60.toFixed(2)}</Text>
                 <Text>Data: {new Date(item.DATEMIS60).toLocaleDateString('pt-BR')}</Text>
                 <Text>Cliente: {item.NOME60}</Text>

@@ -84,12 +84,13 @@ export default function FiltroVendas({
     try {
       const filtrosParaEnviar: FiltrosVendas = {
         filial: filtros.filial,
-        pdv: filtros.pdv,
-        codigocliente: filtros.codigocliente,
-        documento: filtros.documento,
-        qtd: filtros.qtd || 5
+        pdv: filtros.pdv || undefined,
+        codigocliente: filtros.codigocliente || undefined,
+        documento: filtros.documento?.trim() || undefined,
+        qtd: filtros.qtd || 10
       };
-
+      console.log(filtrosParaEnviar);
+      
       if (onBuscar) {
         onBuscar(filtrosParaEnviar);
       } else {
@@ -97,7 +98,6 @@ export default function FiltroVendas({
         const res = await axios.get(`${apiUrl}/conrec`, {
           params: filtrosParaEnviar
         });
-        console.log('Resultados da busca:', res.data);
       }
     } catch (err: any) {
       if (err.response?.status === 404) {
