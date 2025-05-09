@@ -12,15 +12,13 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
       "package": "com.dionidias.assinatura",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "runtimeVersion": "1.0.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,6 +28,14 @@
         "projectId": "6ec84e11-9f0c-40d4-bb02-7bd3c3953951"
       }
     },
-    "owner": "dionidias"
+    "owner": "dionidias",
+    "updates": {
+      "url": "https://u.expo.dev/6ec84e11-9f0c-40d4-bb02-7bd3c3953951"
+    },
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "listUnknownPackages": false
+      }
+    }
   }
 }
