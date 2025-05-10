@@ -32,9 +32,9 @@
     "updates": {
       "url": "https://u.expo.dev/6ec84e11-9f0c-40d4-bb02-7bd3c3953951"
     },
-    "doctor": {
-      "reactNativeDirectoryCheck": {
-        "listUnknownPackages": false
+    "ios": {
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     }
   }
