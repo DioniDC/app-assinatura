@@ -18,11 +18,13 @@ export interface Venda {
   CUPOM60: number;
   DATEMIS60: string;
   VALOR60: number;
+  DATVENC60: string;
   NOTAPROMIS: boolean;
   NOME60: string;
   CODFIL60: number;
   NUMDOC60: number;
   NCAIXA60: number;
+  LANSAI60: number;
 }
 
 export interface FiltrosVendas {
@@ -89,13 +91,12 @@ export default function FiltroVendas({
         documento: filtros.documento?.trim() || undefined,
         qtd: filtros.qtd || 10
       };
-      console.log(filtrosParaEnviar);
-      
+ 
       if (onBuscar) {
         onBuscar(filtrosParaEnviar);
       } else {
         setInternalLoading(true);
-        const res = await axios.get(`${apiUrl}/conrec`, {
+        const res = await axios.get(`${apiUrl}/conrec`, {          
           params: filtrosParaEnviar
         });
       }
@@ -181,11 +182,11 @@ export default function FiltroVendas({
   <View style={styles.row}>
     <TextInput
       style={[styles.input, styles.flex1]}
-      placeholder="Digite o nome do cliente (Ex: JOAO)"
+      placeholder="Digite o nome (Ex: JOAO)"
       value={nomeCliente}
       onChangeText={setNomeCliente}
     />
-    <Button title="Buscar" onPress={buscarClientes} disabled={loadingClientes} />
+    <Button title="Buscar Nome" onPress={buscarClientes} disabled={loadingClientes} />
   </View>
 ) : (
   <>

@@ -80,7 +80,7 @@ export default function HomeScreen() {
     try {
       setLoading(true);
       startRotation();
-      console.log(`${apiUrl}/conrec`);
+
       const res = await axios.get(`${apiUrl}/conrec`, {
         params: { filial, pdv, qtd: 1 },
       });
